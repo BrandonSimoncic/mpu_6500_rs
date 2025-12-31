@@ -18,8 +18,8 @@ A ROS2 node written in Rust for interfacing with the MPU-6500 IMU sensor via I2C
 ## Building
 
 ```bash
-cd src/hardware_drivers/mpu_6500_rs
-cargo build --release
+cd workspace
+colcon build --packages-up-to mpu_6500_rs
 ```
 
 ## Running
