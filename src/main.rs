@@ -8,9 +8,8 @@ use std::thread;
 use std::time::Duration;
 use std::fmt::Debug;
 mod imu;
-use imu::Mpu6500;
-use imu::SensorData;
-use embedded_hal::i2c::I2c;
+use imu::{Mpu6500, SensorData, MockI2c};
+use embedded_hal::i2c::{I2c, ErrorType};
 
 struct IMUNode<I2C> {
     _node: rclrs::Node,
@@ -18,10 +17,10 @@ struct IMUNode<I2C> {
     mpu: Arc<Mutex<Mpu6500<I2C>>>,
 }
 
-impl<I2C, E> IMUNode<I2C>
+impl<I2C> IMUNode<I2C>
 where
-    I2C: I2c<Error = E> + Send + 'static,
-    E: Debug + 'static,
+    I2C: I2c + ErrorType + Send + 'static,
+    I2C::Error: Debug + 'static,
 {
     fn new(executor: &Executor, mut mpu: Mpu6500<I2C>) -> Result<Self> {
         let node = executor.create_node("imu_node")?;
@@ -112,7 +111,7 @@ fn main() -> Result<()> {
 
     // let i2c = I2cdev::new("/dev/i2c-1").map_err(|e| anyhow::anyhow!("Failed to create I2C device: {:?}", e))?;
     let mock_i2c = MockI2c;
-    let mut mpu = Mpu6500::new(mock_i2c);
+    let mpu = Mpu6500::new(mock_i2c);
     let mut executor = Context::default_from_env()?.create_basic_executor();
     let _imu_node = IMUNode::new(&executor, mpu)?;
     executor.spin(rclrs::SpinOptions::default()).first_error()?;

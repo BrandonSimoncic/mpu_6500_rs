@@ -1,4 +1,5 @@
-use embedded_hal::i2c::I2c;
+use embedded_hal::i2c::{I2c, ErrorType};
+use embedded_hal::i2c::Error as I2cError;
 use thiserror::Error;
 
 /// MPU-6500 I2C address (when AD0 pin is connected to GND)
@@ -26,9 +27,9 @@ pub struct Mpu6500<I2C> {
     address: u8,
 }
 
-impl<I2C, E> Mpu6500<I2C>
+impl<I2C> Mpu6500<I2C>
 where
-    I2C: I2c<Error = E>,
+    I2C: I2c + ErrorType,
 {
     /// Create a new MPU-6500 driver instance
     pub fn new(i2c: I2C) -> Self {
@@ -44,7 +45,7 @@ where
     }
 
     /// Initialize and configure the MPU-6500 sensor
-    pub fn setup(&mut self) -> Result<(), Mpu6500Error<E>> {
+    pub fn setup(&mut self) -> Result<(), Mpu6500Error<I2C::Error>> {
         // Wake up MPU-6500 (clear sleep bit)
         self.write_register(registers::PWR_MGMT_1, 0x00)?;
         
@@ -58,7 +59,7 @@ where
     }
 
     /// Read accelerometer and gyroscope data
-    pub fn read_sensor_data(&mut self) -> Result<SensorData, Mpu6500Error<E>> {
+    pub fn read_sensor_data(&mut self) -> Result<SensorData, Mpu6500Error<I2C::Error>> {
         // Read accelerometer data (6 bytes: X, Y, Z high and low)
         let mut accel_buf = [0u8; 6];
         self.read_registers(registers::ACCEL_XOUT_H, &mut accel_buf)?;
@@ -91,7 +92,7 @@ where
     }
 
     /// Write a byte to a register
-    fn write_register(&mut self, reg: u8, data: u8) -> Result<(), Mpu6500Error<E>> {
+    fn write_register(&mut self, reg: u8, data: u8) -> Result<(), Mpu6500Error<I2C::Error>> {
         let buffer = [reg, data];
         self.i2c
             .write(self.address, &buffer)
@@ -99,7 +100,7 @@ where
     }
 
     /// Read multiple bytes starting from a register
-    fn read_registers(&mut self, reg: u8, buffer: &mut [u8]) -> Result<(), Mpu6500Error<E>> {
+    fn read_registers(&mut self, reg: u8, buffer: &mut [u8]) -> Result<(), Mpu6500Error<I2C::Error>> {
         // Write register address, then read
         let reg_buf = [reg];
         self.i2c
@@ -159,16 +160,18 @@ impl SensorData {
 }
 
 // For testing purposes only
-struct MockI2c;
+pub struct MockI2c;
+
+impl embedded_hal::i2c::ErrorType for MockI2c {
+    type Error = embedded_hal::i2c::ErrorKind;
+}
 
 impl embedded_hal::i2c::I2c for MockI2c {
-    type Error = ();
-
     fn write(&mut self, _address: u8, _buffer: &[u8]) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn read(&mut self, _address: u8, _buffer: &mut [u8]) -> Result<(), Self::Error> {
+    fn read(&mut self, _address: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
         // Return mock data
         for b in buffer.iter_mut() {
             *b = 0;
@@ -185,6 +188,29 @@ impl embedded_hal::i2c::I2c for MockI2c {
         // Return mock data
         for b in read_buffer.iter_mut() {
             *b = 0;
+        }
+        Ok(())
+    }
+
+    fn transaction(
+        &mut self,
+        _address: u8,
+        operations: &mut [embedded_hal::i2c::Operation<'_>],
+    ) -> Result<(), Self::Error> {
+        // Mock implementation - simulate operations
+        for op in operations {
+            match op {
+                embedded_hal::i2c::Operation::Write(write_buf) => {
+                    // Simulate write - do nothing
+                    let _ = write_buf;
+                }
+                embedded_hal::i2c::Operation::Read(read_buf) => {
+                    // Simulate read - fill with zeros
+                    for b in read_buf.iter_mut() {
+                        *b = 0;
+                    }
+                }
+            }
         }
         Ok(())
     }
