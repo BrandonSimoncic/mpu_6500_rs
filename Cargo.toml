@@ -1,0 +1,17 @@
+[package]
+name = "imu"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "imu"
+path = "src/main.rs"
+
+[dependencies]
+embedded-hal = "*"
+thiserror = "*"
+rclrs = "*"
+anyhow = { version = "1", features = ["backtrace"] }
+sensor_msgs = "*"
+geometry_msgs = "*"
+builtin_interfaces = "*"
